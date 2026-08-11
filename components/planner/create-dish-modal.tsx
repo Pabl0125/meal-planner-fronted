@@ -28,7 +28,8 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
       modalRef.current?.focus();
       
       // Fetch labels
-      fetch("http://localhost:8080/api/etiquetas")
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+      fetch(`${baseUrl}/etiquetas`)
         .then(res => res.json())
         .then(data => setAvailableLabels(data))
         .catch(() => setAvailableLabels([

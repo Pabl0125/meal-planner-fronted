@@ -55,7 +55,8 @@ export function PlannerDashboard() {
   React.useEffect(() => {
     async function fetchDishes() {
       try {
-        const res = await fetch("http://localhost:8080/api/platos")
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL
+        const res = await fetch(`${baseUrl}/platos`)
         if (!res.ok) throw new Error("API not accessible")
         const data: PlatoAPI[] = await res.json()
         setDishes(data.map(mapPlatoToDish))
@@ -127,7 +128,8 @@ export function PlannerDashboard() {
 
   const handleCreateDish = async (newDishData: Omit<PlatoAPI, "id">) => {
     try {
-      const res = await fetch("http://localhost:8080/api/platos", {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${baseUrl}/platos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newDishData)
@@ -263,7 +265,7 @@ export function PlannerDashboard() {
         )}
         
         {/* Right Sidebar */}
-        <aside className={`fixed inset-y-0 right-0 z-50 w-4/5 sm:w-[400px] lg:static lg:w-[400px] shrink-0 border-l border-surface-container bg-surface-container-lowest p-6 flex flex-col h-full lg:h-screen overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}`}>
+        <aside className={`fixed inset-y-0 right-0 z-50 w-4/5 sm:w-100 lg:static lg:w-100 shrink-0 border-l border-surface-container bg-surface-container-lowest p-6 flex flex-col h-full lg:h-screen overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}`}>
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-serif text-2xl">Dishes</h2>
             <Button variant="ghost" className="lg:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(false)}>
@@ -344,7 +346,7 @@ export function PlannerDashboard() {
 
       <DragOverlay dropAnimation={null}>
         {activeDish ? (
-          <div className="w-[280px]">
+          <div className="w-70">
             <DraggableDish dish={activeDish} />
           </div>
         ) : null}
