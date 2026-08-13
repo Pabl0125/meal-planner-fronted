@@ -56,7 +56,7 @@ export function PlannerDashboard() {
     async function fetchDishes() {
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL
-        const res = await fetch(`${baseUrl}/platos`)
+        const res = await fetch(`${baseUrl}/dishes`)
         if (!res.ok) throw new Error("API not accessible")
         const data: PlatoAPI[] = await res.json()
         setDishes(data.map(mapPlatoToDish))
@@ -129,7 +129,7 @@ export function PlannerDashboard() {
   const handleCreateDish = async (newDishData: Omit<PlatoAPI, "id">) => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${baseUrl}/platos`, {
+      const res = await fetch(`${baseUrl}/dishes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newDishData)
