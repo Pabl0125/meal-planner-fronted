@@ -2,57 +2,71 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlatoAPI, EtiquetaAPI } from "@/types/api";
+import { getTags, createTag } from "@/lib/api/tags";
 
 interface CreateDishModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (dish: Omit<PlatoAPI, "id">) => void;
+  onSubmit: (dish: any) => Promise<void>;
 }
 
-export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalProps) {
-  const modalRef = React.useRef<HTMLDivElement>(null);
-  const previousFocusRef = React.useRef<HTMLElement | null>(null);
 
-  const [nombre, setNombre] = React.useState("");
-  const [descripcion, setDescripcion] = React.useState("");
-  
-  const [availableLabels, setAvailableLabels] = React.useState<EtiquetaAPI[]>([]);
-  const [selectedLabelIds, setSelectedLabelIds] = React.useState<Set<number>>(new Set());
+export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalProps) {
+  // Refs for focus management
+  const modalRef = React.useRef<HTMLDivElement>(null); // Save a reference to the modal for focus management
+  const previousFocusRef = React.useRef<HTMLElement | null>(null); // Save the previously focused element
+  // General descriptions
+  const [nombre, setNombre] = React.useState(""); // State for the dish name
+  const [descripcion, setDescripcion] = React.useState(""); // State for the dish description
+  // Labels
+  const [availableLabels, setAvailableLabels] = React.useState<EtiquetaAPI[]>([]); // State for available dish labels
+  const [selectedLabelIds, setSelectedLabelIds] = React.useState<Set<number>>(new Set());// State for selected dish labels
+  // New label input
   const [isAddingLabel, setIsAddingLabel] = React.useState(false);
   const [newLabelInput, setNewLabelInput] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   
   const [errors, setErrors] = React.useState<{ nombre?: string; descripcion?: string }>({});
+  
+  const resetForm = () => {
+    setNombre("");
+    setDescripcion("");
+    setSelectedLabelIds(new Set());
+    setIsAddingLabel(false);
+    setNewLabelInput("");
+    setErrors({});
+  }
 
+  // REMEMBER: The useEffect hook is React's way of saying, "Whenever a specific variable changes, run this block of code."
+  // In this case, it runs whenever the isOpen variable changes.
   React.useEffect(() => {
     if (isOpen) {
+      // Save the currently focused element before opening the modal
       previousFocusRef.current = document.activeElement as HTMLElement;
-      modalRef.current?.focus();
+      modalRef.current?.focus(); // Set focus to the modal when it opens
       
-      // Fetch labels
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
-      fetch(`${baseUrl}/etiquetas`)
-        .then(res => res.json())
+      // Fetch labels using the encapsulated function
+      getTags()
         .then(data => setAvailableLabels(data))
-        .catch(() => setAvailableLabels([
-          { id: 1, nombre: "Vegano" },
-          { id: 2, nombre: "Vegetariano" },
-          { id: 3, nombre: "Saludable" },
-          { id: 4, nombre: "Rápido" }
-        ]));
+        .catch(err => console.error("Could not fetch labels:", err));
+
+      const handleGlobalEscape = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      window.addEventListener("keydown", handleGlobalEscape);
+
+      return () => window.removeEventListener("keydown", handleGlobalEscape);
     } else {
-      previousFocusRef.current?.focus();
+      previousFocusRef.current?.focus(); // REMEMBER: "?" is the optional safety net. "if the thing that is on the left exists, go ahead and call focus()"
       // Reset form
-      setNombre("");
-      setDescripcion("");
-      setSelectedLabelIds(new Set());
-      setIsAddingLabel(false);
-      setNewLabelInput("");
-      setErrors({});
+      resetForm();
     }
-  }, [isOpen]);
+  }, [isOpen, onClose]); // Here we specify that this effect should run whenever isOpen changes.
 
-  if (!isOpen) return null;
+  if (!isOpen) return null; // If the modal isn't open, don't render anything
 
+  // Once you pass an id to the handler function, it will toggle the selection state of that label
+  // If the label is already selected, it will be deselected, and 
   const handleToggleLabel = (id: number) => {
     setSelectedLabelIds(prev => {
       const next = new Set(prev);
@@ -61,49 +75,63 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
       return next;
     });
   }
-
-  const handleAddNewLabel = () => {
+  // Once the user has entered a new label name and either pressed Enter or clicked away, this function will attempt to create the new label in the backend
+  const handleAddNewLabel = async () => {
     if (newLabelInput.trim()) {
-      const newLabel = { id: Date.now(), nombre: newLabelInput.trim() };
-      setAvailableLabels(prev => [...prev, newLabel]);
-      setSelectedLabelIds(prev => new Set(prev).add(newLabel.id));
-      setNewLabelInput("");
-      setIsAddingLabel(false);
+      try {
+        const newLabel = await createTag(newLabelInput.trim()); // api call via etiquetas.ts library
+        setAvailableLabels(prev => [...prev, newLabel]);
+        setSelectedLabelIds(prev => new Set(prev).add(newLabel.id));
+        setNewLabelInput("");
+        setIsAddingLabel(false);
+      } catch (error) {
+        console.error("Error al crear la etiqueta:", error);
+      }
     } else {
       setIsAddingLabel(false);
     }
   };
-
+  // Handles enter input for new label creation and escape to cancel
   const handleNewLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault();
+      e.preventDefault(); // REMEMBER: Instead for submitting the fort, Stop! Do not submit the form. Just run my custom code instead
       handleAddNewLabel();
     } else if (e.key === 'Escape') {
+      e.stopPropagation(); // REMEMBER: Stop! Do not propagate this event to parent elements. Just run my custom code instead
       setIsAddingLabel(false);
       setNewLabelInput("");
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const newErrors: typeof errors = {};
+
     if (!nombre.trim()) newErrors.nombre = "El nombre es requerido";
     if (!descripcion.trim()) newErrors.descripcion = "La descripción es requerida";
     
+    // If there are any errors, set them and return early
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
     }
 
-    // Combine selected existing labels + new labels
-    const finalEtiquetas: EtiquetaAPI[] = availableLabels.filter(lbl => selectedLabelIds.has(lbl.id));
+    setIsSubmitting(true);
+    try {
+      // All selected tags are already created in the backend
+      const finalEtiquetas: EtiquetaAPI[] = availableLabels.filter(lbl => selectedLabelIds.has(lbl.id));
 
-    onSubmit({
-      nombre,
-      descripcion,
-      etiquetas: finalEtiquetas
-    });
-    onClose();
+      await onSubmit({
+        name: nombre,
+        description: descripcion,
+        tags: finalEtiquetas
+      });
+      onClose();
+    } catch (err) {
+      console.error("Error al guardar plato", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -114,7 +142,6 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
         aria-modal="true" 
         aria-labelledby="modal-title" 
         tabIndex={-1} 
-        onKeyDown={e => e.key === "Escape" && onClose()}
         className="w-full max-w-md bg-surface p-6 rounded-lg shadow-xl outline-none max-h-[90vh] overflow-y-auto"
       >
         <h2 id="modal-title" className="font-serif text-2xl mb-6 text-on-surface">Crear Nuevo Plato</h2>
@@ -149,7 +176,7 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
               id="dish-descripcion"
               value={descripcion}
               onChange={e => setDescripcion(e.target.value)}
-              className={`flex min-h-[80px] w-full rounded-md border bg-surface px-3 py-2 text-sm text-on-background placeholder:text-outline focus-visible:outline-none focus-visible:border-primary transition-colors ${errors.descripcion ? 'border-error' : 'border-outline-variant'}`}
+              className={`flex min-h-20 w-full rounded-md border bg-surface px-3 py-2 text-sm text-on-background placeholder:text-outline focus-visible:outline-none focus-visible:border-primary transition-colors ${errors.descripcion ? 'border-error' : 'border-outline-variant'}`}
               aria-required="true"
               aria-describedby={errors.descripcion ? "descripcion-error" : undefined}
               aria-invalid={!!errors.descripcion}
@@ -177,7 +204,7 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
                   }`}
                   aria-pressed={selectedLabelIds.has(label.id)}
                 >
-                  {label.nombre}
+                  {label.name}
                 </button>
               ))}
               {!isAddingLabel ? (
@@ -196,7 +223,6 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
                     value={newLabelInput}
                     onChange={e => setNewLabelInput(e.target.value)}
                     onKeyDown={handleNewLabelKeyDown}
-                    onBlur={handleAddNewLabel}
                     placeholder="Nombre..."
                   />
                 </div>
@@ -205,11 +231,11 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
               Cancelar
             </Button>
-            <Button type="submit">
-              Guardar Plato
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Guardando..." : "Guardar Plato"}
             </Button>
           </div>
         </form>
