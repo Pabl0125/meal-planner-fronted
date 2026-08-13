@@ -18,7 +18,8 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
   
   const [availableLabels, setAvailableLabels] = React.useState<EtiquetaAPI[]>([]);
   const [selectedLabelIds, setSelectedLabelIds] = React.useState<Set<number>>(new Set());
-  const [newLabelsText, setNewLabelsText] = React.useState("");
+  const [isAddingLabel, setIsAddingLabel] = React.useState(false);
+  const [newLabelInput, setNewLabelInput] = React.useState("");
   
   const [errors, setErrors] = React.useState<{ nombre?: string; descripcion?: string }>({});
 
@@ -44,7 +45,8 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
       setNombre("");
       setDescripcion("");
       setSelectedLabelIds(new Set());
-      setNewLabelsText("");
+      setIsAddingLabel(false);
+      setNewLabelInput("");
       setErrors({});
     }
   }, [isOpen]);
@@ -60,6 +62,28 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
     });
   }
 
+  const handleAddNewLabel = () => {
+    if (newLabelInput.trim()) {
+      const newLabel = { id: Date.now(), nombre: newLabelInput.trim() };
+      setAvailableLabels(prev => [...prev, newLabel]);
+      setSelectedLabelIds(prev => new Set(prev).add(newLabel.id));
+      setNewLabelInput("");
+      setIsAddingLabel(false);
+    } else {
+      setIsAddingLabel(false);
+    }
+  };
+
+  const handleNewLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddNewLabel();
+    } else if (e.key === 'Escape') {
+      setIsAddingLabel(false);
+      setNewLabelInput("");
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: typeof errors = {};
@@ -73,17 +97,11 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
 
     // Combine selected existing labels + new labels
     const finalEtiquetas: EtiquetaAPI[] = availableLabels.filter(lbl => selectedLabelIds.has(lbl.id));
-    
-    const newLabels = newLabelsText
-      .split(",")
-      .map(e => e.trim())
-      .filter(Boolean)
-      .map((name, index) => ({ id: Date.now() + index, nombre: name }));
 
     onSubmit({
       nombre,
       descripcion,
-      etiquetas: [...finalEtiquetas, ...newLabels]
+      etiquetas: finalEtiquetas
     });
     onClose();
   };
@@ -162,17 +180,28 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
                   {label.nombre}
                 </button>
               ))}
+              {!isAddingLabel ? (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingLabel(true)}
+                  className="px-3 py-1 text-xs font-bold rounded-full transition-colors border bg-surface-container text-on-surface border-dashed border-outline hover:bg-surface-container-high"
+                >
+                  Nueva etiqueta +
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    autoFocus
+                    className="h-7 text-xs w-32 px-2 py-1"
+                    value={newLabelInput}
+                    onChange={e => setNewLabelInput(e.target.value)}
+                    onKeyDown={handleNewLabelKeyDown}
+                    onBlur={handleAddNewLabel}
+                    placeholder="Nombre..."
+                  />
+                </div>
+              )}
             </div>
-            
-            <label htmlFor="dish-new-etiquetas" className="font-sans text-sm font-medium text-on-surface mt-2">
-              O Crear Nuevas Etiquetas
-            </label>
-            <Input
-              id="dish-new-etiquetas"
-              value={newLabelsText}
-              onChange={e => setNewLabelsText(e.target.value)}
-              placeholder="Ej. Sin Gluten, Postre (separadas por coma)"
-            />
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
