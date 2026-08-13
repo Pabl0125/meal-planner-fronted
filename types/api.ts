@@ -1,11 +1,11 @@
 export interface EtiquetaAPI {
   id: number;
-  nombre: string;
+  name: string;
 }
 
 export interface PlatoAPI {
   id: number;
-  nombre: string;
-  descripcion: string;
-  etiquetas: EtiquetaAPI[];
+  name: string;
+  description: string;
+  tags: EtiquetaAPI[];
 }
