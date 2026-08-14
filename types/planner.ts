@@ -20,4 +20,12 @@ export interface MealSlotInfo {
   meal: MealType;
 }
 
-export type WeeklyPlan = Record<DayOfWeek, Record<MealType, Dish | null>>;
+export type WeeklyPlan = {
+ Lunes: Record<MealType, Dish | null>;
+ Martes: Record<MealType, Dish | null>;
+ Miércoles: Record<MealType, Dish | null>;
+ Jueves: Record<MealType, Dish | null>;
+ Viernes: Record<MealType, Dish | null>;
+ Sábado: Record<MealType, Dish | null>;
+ Domingo: Record<MealType, Dish | null>;
+}
