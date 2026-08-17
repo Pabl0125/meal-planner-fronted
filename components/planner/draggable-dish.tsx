@@ -2,12 +2,17 @@ import { useDraggable } from "@dnd-kit/core"
 import { Dish } from "@/types/planner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { getLabelColorClass } from "@/lib/utils"
+import { Pencil, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface DraggableDishProps {
   dish: Dish;
+  onEdit?: (dish: Dish) => void;
+  onDelete?: (dish: Dish) => void;
 }
 
-export function DraggableDish({ dish }: DraggableDishProps) {
+export function DraggableDish({ dish, onEdit, onDelete }: DraggableDishProps) {
   /**
    * attributes: props to spread onte the draggable element
    * listeners: event handlers needed to start dragging
@@ -39,11 +44,48 @@ export function DraggableDish({ dish }: DraggableDishProps) {
       aria-label={`Draggable dish: ${dish.title}`} // Screen readers
     >
       {/*Inner content of the card, including the dish title and labels*/}
-      <CardContent className="p-4 flex flex-col space-y-2">
-        <h4 className="font-serif text-lg leading-tight">{dish.title}</h4>
+      <CardContent className="p-4 flex flex-col space-y-2 relative group">
+        <div className="flex justify-between items-start gap-2">
+          <h4 className="font-serif text-lg leading-tight">{dish.title}</h4>
+          <div className="flex gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                className="h-7 w-7 p-1 rounded-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(dish);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Edit {dish.title}</span>
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                className="h-7 w-7 p-1 rounded-full text-error hover:bg-error/10 hover:text-error"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(dish);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Delete {dish.title}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+        {dish.description && (
+          <p className="text-sm text-secondary line-clamp-2">{dish.description}</p>
+        )}
         <div className="flex flex-wrap gap-1 mt-2">
           {dish.labels.map(label => (
-            <Badge key={label}>{label}</Badge>
+            <Badge key={label} className={getLabelColorClass(label)}>
+              {label}
+            </Badge>
           ))}
         </div>
       </CardContent>

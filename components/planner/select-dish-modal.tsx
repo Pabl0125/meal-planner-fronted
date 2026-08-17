@@ -2,6 +2,7 @@ import * as React from "react"
 import { Dish, DayOfWeek, MealType } from "@/types/planner"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { getLabelColorClass } from "@/lib/utils"
 
 interface SelectDishModalProps {
   isOpen: boolean
@@ -74,7 +75,11 @@ export function SelectDishModal({ isOpen, onClose, onSelect, dishes, day, meal }
             >
               <h4 className="font-serif text-lg">{dish.title}</h4>
               <div className="flex gap-1 mt-1">
-                {dish.labels.map(l => <Badge key={l}>{l}</Badge>)}
+                {dish.labels.map(l => (
+                  <Badge key={l} className={getLabelColorClass(l)}>
+                    {l}
+                  </Badge>
+                ))}
               </div>
             </div>
           ))}

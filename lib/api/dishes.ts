@@ -35,3 +35,35 @@ export async function createDish(newDishData: Omit<PlatoAPI, "id">): Promise<Dis
     throw error;
   }
 }
+
+export async function updateDish(id: number, dishData: Omit<PlatoAPI, "id">): Promise<Dish> {
+  try {
+    const res = await fetch(`${API_URL}/dishes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dishData),
+    });
+    if (!res.ok) {
+      throw new Error(`Error updating dish: ${res.statusText}`);
+    }
+    const data: PlatoAPI = await res.json();
+    return mapPlatoToDish(data);
+  } catch (error) {
+    console.error(`Failed to update dish ${id}.`, error);
+    throw error;
+  }
+}
+
+export async function deleteDish(id: number): Promise<void> {
+  try {
+    const res = await fetch(`${API_URL}/dishes/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      throw new Error(`Error deleting dish: ${res.statusText}`);
+    }
+  } catch (error) {
+    console.error(`Failed to delete dish ${id}.`, error);
+    throw error;
+  }
+}

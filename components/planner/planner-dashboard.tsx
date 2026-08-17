@@ -6,17 +6,21 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Dish, DayOfWeek, MealType, WeeklyPlan } from "@/types/planner"
 import { PlatoAPI } from "@/types/api"
 import { mapPlatoToDish } from "@/lib/api/mappers"
-import { getDishes, createDish } from "@/lib/api/dishes"
+import { getDishes, createDish, updateDish, deleteDish } from "@/lib/api/dishes"
 import { DraggableDish } from "./draggable-dish"
 import { DroppableMealSlot } from "./droppable-meal-slot"
 import { CreateDishModal } from "./create-dish-modal"
 import { SelectDishModal } from "./select-dish-modal"
+import { DeleteDishModal } from "./delete-dish-modal"
+import { ManageTagsModal } from "./manage-tags-modal"
 import { NutritionalGuidelines } from "./nutritional-guidelines"
 import { ExportPreview } from "./export-preview"
+import { AiChatWidget } from "./ai-chat-widget"
+import { ChatAction } from "@/lib/api/chat"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Download, Loader2, Menu, X } from "lucide-react"
+import { Download, Loader2, Menu, Settings, X } from "lucide-react"
 import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 
@@ -27,6 +31,9 @@ export function PlannerDashboard() {
   const [dishes, setDishes] = React.useState<Dish[]>([])
   const [searchQuery, setSearchQuery] = React.useState("")
   const [isModalOpen, setIsModalOpen] = React.useState(false)
+  const [dishToEdit, setDishToEdit] = React.useState<Dish | null>(null)
+  const [dishToDelete, setDishToDelete] = React.useState<Dish | null>(null)
+  const [manageTagsOpen, setManageTagsOpen] = React.useState(false)
   
   // Select Dish Modal state
   const [selectModalOpen, setSelectModalOpen] = React.useState(false)
@@ -101,6 +108,47 @@ export function PlannerDashboard() {
     }))
   }
 
+  const handleExecuteAiAction = (action: ChatAction) => {
+    switch (action.type) {
+      case "ASSIGN":
+        if (action.day && action.meal && action.dishName) {
+          const dishToAssign = dishes.find(d => 
+            d.title.toLowerCase().includes(action.dishName!.toLowerCase())
+          )
+          if (dishToAssign) {
+            setPlan(prev => ({
+              ...prev,
+              [action.day as DayOfWeek]: {
+                ...prev[action.day as DayOfWeek],
+                [action.meal as MealType]: dishToAssign
+              }
+            }))
+          }
+        }
+        break;
+      case "CLEAR_MEAL":
+        if (action.day && action.meal) {
+          setPlan(prev => ({
+            ...prev,
+            [action.day as DayOfWeek]: {
+              ...prev[action.day as DayOfWeek],
+              [action.meal as MealType]: null
+            }
+          }))
+        }
+        break;
+      case "CLEAR_WEEK":
+        setPlan(() => {
+          const initialPlan = {} as WeeklyPlan
+          DAYS.forEach(day => {
+            initialPlan[day] = { Lunch: null, Dinner: null }
+          })
+          return initialPlan
+        })
+        break;
+    }
+  }
+
   const handleAddClick = (day: DayOfWeek, meal: MealType) => {
     setSelectDay(day)
     setSelectMeal(meal)
@@ -120,20 +168,74 @@ export function PlannerDashboard() {
     setSelectModalOpen(false)
   }
 
-  const handleCreateDish = async (newDishData: Omit<PlatoAPI, "id">) => {
-    try {
-      const createdDish = await createDish(newDishData)
-      setDishes(prev => [...prev, createdDish])
-    } catch (error) {
-      console.warn("Mocking creation due to backend error:", error)
-      const mockCreated: PlatoAPI = {
-        ...newDishData,
-        id: Date.now() // Mock ID
+  const handleSaveDish = async (dishData: Omit<PlatoAPI, "id">) => {
+    if (dishToEdit) {
+      try {
+        const updatedDish = await updateDish(parseInt(dishToEdit.id, 10), dishData)
+        setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d))
+        
+        // Update plan if this dish is placed anywhere
+        setPlan(prev => {
+          const newPlan = { ...prev };
+          DAYS.forEach(day => {
+            if (newPlan[day].Lunch?.id === updatedDish.id) newPlan[day].Lunch = updatedDish;
+            if (newPlan[day].Dinner?.id === updatedDish.id) newPlan[day].Dinner = updatedDish;
+          });
+          return newPlan;
+        });
+      } catch (error) {
+        console.warn("Mocking update due to backend error:", error)
+        const mockUpdated: PlatoAPI = {
+          ...dishData,
+          id: parseInt(dishToEdit.id, 10)
+        }
+        const updatedMockDish = mapPlatoToDish(mockUpdated)
+        setDishes(prev => prev.map(d => d.id === updatedMockDish.id ? updatedMockDish : d))
+        
+        setPlan(prev => {
+          const newPlan = { ...prev };
+          DAYS.forEach(day => {
+            if (newPlan[day].Lunch?.id === updatedMockDish.id) newPlan[day].Lunch = updatedMockDish;
+            if (newPlan[day].Dinner?.id === updatedMockDish.id) newPlan[day].Dinner = updatedMockDish;
+          });
+          return newPlan;
+        });
       }
-      setDishes(prev => [...prev, mapPlatoToDish(mockCreated)])
+    } else {
+      try {
+        const createdDish = await createDish(dishData)
+        setDishes(prev => [...prev, createdDish])
+      } catch (error) {
+        console.warn("Mocking creation due to backend error:", error)
+        const mockCreated: PlatoAPI = {
+          ...dishData,
+          id: Date.now() // Mock ID
+        }
+        setDishes(prev => [...prev, mapPlatoToDish(mockCreated)])
+      }
     }
+    setDishToEdit(null)
   }
 
+  const handleDeleteDish = async (dish: Dish) => {
+    try {
+      await deleteDish(parseInt(dish.id, 10))
+    } catch (error) {
+      console.warn("Mocking delete due to backend error:", error)
+    }
+    setDishes(prev => prev.filter(d => d.id !== dish.id))
+    
+    // Remove from plan if assigned
+    setPlan(prev => {
+      const newPlan = { ...prev };
+      DAYS.forEach(day => {
+        if (newPlan[day].Lunch?.id === dish.id) newPlan[day].Lunch = null;
+        if (newPlan[day].Dinner?.id === dish.id) newPlan[day].Dinner = null;
+      });
+      return newPlan;
+    });
+    setDishToDelete(null);
+  }
   const handleExport = async () => {
     setIsExporting(true)
     // Give React a tick to render the ExportPreview into the DOM
@@ -264,7 +366,7 @@ export function PlannerDashboard() {
         )}
         
         {/* Right Sidebar */}
-        <aside className={`fixed inset-y-0 right-0 z-50 w-4/5 sm:w-100 lg:static lg:w-100 shrink-0 border-l border-surface-container bg-surface-container-lowest p-6 flex flex-col h-full lg:h-screen overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}`}>
+        <aside className={`fixed inset-y-0 right-0 z-50 w-4/5 sm:w-100 lg:static lg:w-100 shrink-0 border-l border-surface-container bg-background p-6 flex flex-col h-full lg:h-screen overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}`}>
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-serif text-2xl">Platos</h2>
             <Button variant="ghost" className="lg:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(false)}>
@@ -278,13 +380,13 @@ export function PlannerDashboard() {
               <Input 
                 id="search-dishes"
                 type="search" 
-                placeholder="Search or filter by label..." 
+                placeholder="Buscar platos..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             {uniqueLabels.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
+              <div className="flex flex-wrap gap-1.5 pt-1 items-center">
                 {uniqueLabels.map(label => {
                   const isSelected = selectedLabels.includes(label);
                   return (
@@ -303,6 +405,13 @@ export function PlannerDashboard() {
                     </button>
                   );
                 })}
+                <Button 
+                  variant="ghost" 
+                  className="h-7 text-xs px-2.5 rounded-full flex items-center gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                  onClick={() => setManageTagsOpen(true)}
+                >
+                  <Settings className="h-3 w-3" /> Gestionar
+                </Button>
               </div>
             )}
             <Button className="w-full" onClick={() => setIsModalOpen(true)}>
@@ -319,7 +428,12 @@ export function PlannerDashboard() {
               <p className="text-sm text-outline text-center py-10">No dishes found.</p>
             ) : (
               filteredDishes.map(dish => (
-                <DraggableDish key={dish.id} dish={dish} />
+                <DraggableDish 
+                  key={dish.id} 
+                  dish={dish} 
+                  onEdit={(d) => setDishToEdit(d)}
+                  onDelete={(d) => setDishToDelete(d)}
+                />
               ))
             )}
             {dishes.length > 8 && filteredDishes.length === 8 && (
@@ -331,9 +445,10 @@ export function PlannerDashboard() {
       </div>
 
       <CreateDishModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSubmit={handleCreateDish} 
+        isOpen={isModalOpen || dishToEdit !== null} 
+        onClose={() => { setIsModalOpen(false); setDishToEdit(null); }} 
+        onSubmit={handleSaveDish} 
+        initialDish={dishToEdit}
       />
 
       <SelectDishModal
@@ -345,6 +460,20 @@ export function PlannerDashboard() {
         meal={selectMeal}
       />
 
+      {dishToDelete && (
+        <DeleteDishModal
+          isOpen={!!dishToDelete}
+          onClose={() => setDishToDelete(null)}
+          onConfirm={() => handleDeleteDish(dishToDelete)}
+          dishName={dishToDelete.title}
+        />
+      )}
+
+      <ManageTagsModal 
+        isOpen={manageTagsOpen} 
+        onClose={() => setManageTagsOpen(false)} 
+      />
+
       <DragOverlay dropAnimation={null}>
         {activeDish ? (
           <div className="w-70">
@@ -354,11 +483,11 @@ export function PlannerDashboard() {
       </DragOverlay>
     </DndContext>
 
+    {/* AI Chat Assistant */}
+    <AiChatWidget dishes={dishes} plan={plan} onExecuteAction={handleExecuteAiAction} />
+
     {/* Off-screen export preview — always mounted so html2canvas can capture it */}
     <ExportPreview plan={plan} days={DAYS} />
     </>
   )
 }
-
-
-

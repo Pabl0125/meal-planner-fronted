@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: meal-planner-frontend:latest
+    container_name: meal-planner-frontend
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      # Modifica esta variable si tu API backend corre en otra direccion
+      - NEXT_PUBLIC_API_URL=http://tu-homeserver-ip:8080/api

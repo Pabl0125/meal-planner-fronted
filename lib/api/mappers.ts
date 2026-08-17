@@ -5,6 +5,7 @@ export function mapPlatoToDish(plato: PlatoAPI): Dish {
   return {
     id: plato.id.toString(),
     title: plato.name,
+    description: plato.description,
     labels: plato.tags.map(e => e.name),
   };
 }
