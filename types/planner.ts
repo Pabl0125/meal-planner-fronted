@@ -21,11 +21,11 @@ export interface MealSlotInfo {
 }
 
 export type WeeklyPlan = {
- Lunes: Record<MealType, Dish | null>;
- Martes: Record<MealType, Dish | null>;
- Miércoles: Record<MealType, Dish | null>;
- Jueves: Record<MealType, Dish | null>;
- Viernes: Record<MealType, Dish | null>;
- Sábado: Record<MealType, Dish | null>;
- Domingo: Record<MealType, Dish | null>;
+ Lunes: { Lunch: Dish | null, Dinner: Dish | null }
+ Martes: { Lunch: Dish | null, Dinner: Dish | null }
+ Miércoles: { Lunch: Dish | null, Dinner: Dish | null }
+ Jueves: { Lunch: Dish | null, Dinner: Dish | null }
+ Viernes: { Lunch: Dish | null, Dinner: Dish | null }
+ Sábado: { Lunch: Dish | null, Dinner: Dish | null }
+ Domingo: { Lunch: Dish | null, Dinner: Dish | null }
 }

@@ -6,6 +6,7 @@ import { sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Dish, DayOfWeek, MealType, WeeklyPlan } from "@/types/planner"
 import { PlatoAPI } from "@/types/api"
 import { mapPlatoToDish } from "@/lib/api/mappers"
+import { getDishes, createDish } from "@/lib/api/dishes"
 import { DraggableDish } from "./draggable-dish"
 import { DroppableMealSlot } from "./droppable-meal-slot"
 import { CreateDishModal } from "./create-dish-modal"
@@ -21,12 +22,6 @@ import { jsPDF } from "jspdf"
 
 const DAYS: DayOfWeek[] = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-// Fallback Mock Data in case the backend is down
-const FALLBACK_DISHES: Dish[] = [
-  { id: "1", title: "Tostada de Aguacate", labels: ["Vegano", "Rápido"] },
-  { id: "2", title: "Salmón a la Plancha", labels: ["Saludable", "Pescetariano"] },
-  { id: "3", title: "Ensalada César", labels: ["Vegetariano"] },
-]
 
 export function PlannerDashboard() {
   const [dishes, setDishes] = React.useState<Dish[]>([])
@@ -39,10 +34,12 @@ export function PlannerDashboard() {
   const [selectMeal, setSelectMeal] = React.useState<MealType | null>(null)
 
   const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
   const [isExporting, setIsExporting] = React.useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
+  // Initialize the weekly plan with null values for each meal slot
   const [plan, setPlan] = React.useState<WeeklyPlan>(() => {
     const initialPlan = {} as WeeklyPlan
     DAYS.forEach(day => {
@@ -53,21 +50,18 @@ export function PlannerDashboard() {
 
   // Fetch from API
   React.useEffect(() => {
-    async function fetchDishes() {
+    async function loadDishes() {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL
-        const res = await fetch(`${baseUrl}/dishes`)
-        if (!res.ok) throw new Error("API not accessible")
-        const data: PlatoAPI[] = await res.json()
-        setDishes(data.map(mapPlatoToDish))
-      } catch (error) {
-        console.warn("Using fallback dishes. Backend error:", error)
-        setDishes(FALLBACK_DISHES)
+        const data = await getDishes()
+        setDishes(data)
+      } catch (err) {
+        console.warn("Backend error:", err)
+        setError("Could not load dishes. Please ensure the backend is running.")
       } finally {
         setIsLoading(false)
       }
     }
-    fetchDishes()
+    loadDishes()
   }, [])
 
   const sensors = useSensors(
@@ -128,15 +122,8 @@ export function PlannerDashboard() {
 
   const handleCreateDish = async (newDishData: Omit<PlatoAPI, "id">) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL
-      const res = await fetch(`${baseUrl}/dishes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newDishData)
-      })
-      if (!res.ok) throw new Error("Failed to create")
-      const createdPlato: PlatoAPI = await res.json()
-      setDishes(prev => [...prev, mapPlatoToDish(createdPlato)])
+      const createdDish = await createDish(newDishData)
+      setDishes(prev => [...prev, createdDish])
     } catch (error) {
       console.warn("Mocking creation due to backend error:", error)
       const mockCreated: PlatoAPI = {
@@ -157,17 +144,29 @@ export function PlannerDashboard() {
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: "#fbf9f6",
+        backgroundColor: "#ffffff",
         width: element.offsetWidth,
         height: element.offsetHeight,
       })
       const imgData = canvas.toDataURL("image/png")
       const pdf = new jsPDF({
         orientation: "landscape",
-        unit: "px",
-        format: [canvas.width / 2, canvas.height / 2],
+        format: "a4",
       })
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2)
+      const imgProps = pdf.getImageProperties(imgData)
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+
+      // Calculate ratio to fit entirely within A4 (contain)
+      const ratio = Math.min(pdfWidth / imgProps.width, pdfHeight / imgProps.height)
+      const finalWidth = imgProps.width * ratio
+      const finalHeight = imgProps.height * ratio
+      
+      // Center the image vertically and horizontally
+      const x = (pdfWidth - finalWidth) / 2
+      const y = (pdfHeight - finalHeight) / 2
+
+      pdf.addImage(imgData, "PNG", x, y, finalWidth, finalHeight)
       pdf.save("menu-semanal.pdf")
     } catch (error) {
       console.error("Error exporting PDF:", error)
@@ -199,7 +198,7 @@ export function PlannerDashboard() {
         
         {/* Fixed Topbar */}
         <header className="sticky top-0 z-40 w-full border-b border-surface-container bg-surface/80 backdrop-blur-md px-6 py-4 flex justify-between items-center shrink-0">
-          <h1 className="font-serif text-2xl font-semibold text-on-surface">Weekly Menu Planner</h1>
+          <h1 className="font-serif text-2xl font-semibold text-on-surface">Menú Semanal</h1>
           <div className="flex items-center space-x-2">
             <Button
               variant="ghost"
@@ -267,7 +266,7 @@ export function PlannerDashboard() {
         {/* Right Sidebar */}
         <aside className={`fixed inset-y-0 right-0 z-50 w-4/5 sm:w-100 lg:static lg:w-100 shrink-0 border-l border-surface-container bg-surface-container-lowest p-6 flex flex-col h-full lg:h-screen overflow-y-auto no-scrollbar transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}`}>
           <div className="flex justify-between items-center mb-6">
-            <h2 className="font-serif text-2xl">Dishes</h2>
+            <h2 className="font-serif text-2xl">Platos</h2>
             <Button variant="ghost" className="lg:hidden p-2 rounded-full" onClick={() => setIsSidebarOpen(false)}>
               <X className="h-5 w-5" />
             </Button>
@@ -307,13 +306,15 @@ export function PlannerDashboard() {
               </div>
             )}
             <Button className="w-full" onClick={() => setIsModalOpen(true)}>
-              Create New Dish
+              Crear un nuevo plato
             </Button>
           </div>
 
           <div className="flex-1 flex flex-col space-y-4 overflow-y-auto no-scrollbar pr-2 pb-20">
             {isLoading ? (
               <p className="text-sm text-outline text-center py-10">Loading dishes...</p>
+            ) : error ? (
+              <p className="text-sm text-red-500 text-center py-10 px-4">{error}</p>
             ) : filteredDishes.length === 0 ? (
               <p className="text-sm text-outline text-center py-10">No dishes found.</p>
             ) : (
