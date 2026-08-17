@@ -31,3 +31,34 @@ import { EtiquetaAPI } from "@/types/api";
       throw error;
     }
   }
+
+  export async function updateTag(id: number, name: string): Promise<EtiquetaAPI> {
+    try {
+      const res = await fetch(`${API_URL}/tags/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        throw new Error(`Error updating tag: ${res.statusText}`);
+      }
+      return await res.json();
+    } catch (error) {
+      console.error(`Failed to update tag ${id}.`, error);
+      throw error;
+    }
+  }
+
+  export async function deleteTag(id: number): Promise<void> {
+    try {
+      const res = await fetch(`${API_URL}/tags/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error(`Error deleting tag: ${res.statusText}`);
+      }
+    } catch (error) {
+      console.error(`Failed to delete tag ${id}.`, error);
+      throw error;
+    }
+  }

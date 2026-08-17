@@ -1,6 +1,7 @@
 "use client"
 
 import { WeeklyPlan, DayOfWeek } from "@/types/planner"
+import { getPdfLabelColor } from "@/lib/utils"
 
 interface ExportPreviewProps {
   plan: WeeklyPlan
@@ -84,14 +85,18 @@ function MealCard({ meal, dish }: { meal: string; dish: { title: string; labels:
           </p>
           {dish.labels.length > 0 && (
             <div className="flex flex-wrap items-center gap-1 mt-auto">
-              {dish.labels.map(l => (
-                <span
-                  key={l}
-                  className="inline-block px-2.5 pt-0.5 pb-3 rounded-full bg-[#f0edea] text-[9px] font-semibold text-[#5e5e5d] tracking-wide text-center"
-                >
-                  {l}
-                </span>
-              ))}
+              {dish.labels.map(l => {
+                const colors = getPdfLabelColor(l);
+                return (
+                  <span
+                    key={l}
+                    style={{ backgroundColor: colors.bg, color: colors.text }}
+                    className="inline-block px-2.5 pt-0.5 pb-3 rounded-full text-[9px] font-semibold tracking-wide text-center"
+                  >
+                    {l}
+                  </span>
+                )
+              })}
             </div>
           )}
         </>

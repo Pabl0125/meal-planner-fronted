@@ -4,20 +4,22 @@ import { Input } from "@/components/ui/input";
 import { PlatoAPI, EtiquetaAPI } from "@/types/api";
 import { getTags, createTag } from "@/lib/api/tags";
 
+import { Dish } from "@/types/planner";
+
 interface CreateDishModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (dish: any) => Promise<void>;
+  initialDish?: Dish | null;
 }
 
-
-export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalProps) {
+export function CreateDishModal({ isOpen, onClose, onSubmit, initialDish }: CreateDishModalProps) {
   // Refs for focus management
   const modalRef = React.useRef<HTMLDivElement>(null); // Save a reference to the modal for focus management
   const previousFocusRef = React.useRef<HTMLElement | null>(null); // Save the previously focused element
   // General descriptions
-  const [nombre, setNombre] = React.useState(""); // State for the dish name
-  const [descripcion, setDescripcion] = React.useState(""); // State for the dish description
+  const [nombre, setNombre] = React.useState(initialDish?.title || ""); // State for the dish name
+  const [descripcion, setDescripcion] = React.useState(initialDish?.description || ""); // State for the dish description
   // Labels
   const [availableLabels, setAvailableLabels] = React.useState<EtiquetaAPI[]>([]); // State for available dish labels
   const [selectedLabelIds, setSelectedLabelIds] = React.useState<Set<number>>(new Set());// State for selected dish labels
@@ -29,8 +31,8 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
   const [errors, setErrors] = React.useState<{ nombre?: string; descripcion?: string }>({});
   
   const resetForm = () => {
-    setNombre("");
-    setDescripcion("");
+    setNombre(initialDish?.title || "");
+    setDescripcion(initialDish?.description || "");
     setSelectedLabelIds(new Set());
     setIsAddingLabel(false);
     setNewLabelInput("");
@@ -41,13 +43,30 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
   // In this case, it runs whenever the isOpen variable changes.
   React.useEffect(() => {
     if (isOpen) {
+      // Set initial values if editing
+      setNombre(initialDish?.title || "");
+      setDescripcion(initialDish?.description || "");
+      
       // Save the currently focused element before opening the modal
       previousFocusRef.current = document.activeElement as HTMLElement;
       modalRef.current?.focus(); // Set focus to the modal when it opens
       
       // Fetch labels using the encapsulated function
       getTags()
-        .then(data => setAvailableLabels(data))
+        .then(data => {
+          setAvailableLabels(data);
+          if (initialDish) {
+            const selectedIds = new Set<number>();
+            data.forEach(lbl => {
+              if (initialDish.labels.includes(lbl.name)) {
+                selectedIds.add(lbl.id);
+              }
+            });
+            setSelectedLabelIds(selectedIds);
+          } else {
+            setSelectedLabelIds(new Set());
+          }
+        })
         .catch(err => console.error("Could not fetch labels:", err));
 
       const handleGlobalEscape = (e: KeyboardEvent) => {
@@ -61,7 +80,7 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
       // Reset form
       resetForm();
     }
-  }, [isOpen, onClose]); // Here we specify that this effect should run whenever isOpen changes.
+  }, [isOpen, onClose, initialDish]); // Here we specify that this effect should run whenever isOpen changes.
 
   if (!isOpen) return null; // If the modal isn't open, don't render anything
 
@@ -144,7 +163,9 @@ export function CreateDishModal({ isOpen, onClose, onSubmit }: CreateDishModalPr
         tabIndex={-1} 
         className="w-full max-w-md bg-surface p-6 rounded-lg shadow-xl outline-none max-h-[90vh] overflow-y-auto"
       >
-        <h2 id="modal-title" className="font-serif text-2xl mb-6 text-on-surface">Crear Nuevo Plato</h2>
+        <h2 id="modal-title" className="font-serif text-2xl mb-6 text-on-surface">
+          {initialDish ? "Editar Plato" : "Crear Nuevo Plato"}
+        </h2>
         
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
           <div className="flex flex-col space-y-1.5">
