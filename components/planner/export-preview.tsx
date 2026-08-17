@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from "react"
 import { WeeklyPlan, DayOfWeek } from "@/types/planner"
 
 interface ExportPreviewProps {
@@ -8,117 +7,61 @@ interface ExportPreviewProps {
   days: DayOfWeek[]
 }
 
-/**
- * A dedicated, self-contained component that renders as a beautiful horizontal
- * weekly menu. It is appended off-screen when the user triggers an export,
- * captured as an image, and then removed. This ensures the exported PDF always
- * looks pristine regardless of the current page layout or theme.
- */
 export function ExportPreview({ plan, days }: ExportPreviewProps) {
   return (
-    <div
-      id="export-preview-target"
-      style={{
-        position: "fixed",
-        top: "-9999px",
-        left: "-9999px",
-        width: "1400px",
-        backgroundColor: "#fbf9f6",
-        fontFamily: "'DM Sans', sans-serif",
-        color: "#1b1c1a",
-        padding: "48px",
-        boxSizing: "border-box",
-      }}
-    >
-      {/* Header */}
+    <div className="absolute w-0 h-0 overflow-hidden pointer-events-none">
       <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          marginBottom: "40px",
-          paddingBottom: "24px",
-          borderBottom: "1px solid #e0ddd9",
-        }}
+        id="export-preview-target"
+        className="w-350 h-247.5 bg-white font-sans text-[#1b1c1a] p-12 box-border flex flex-col"
       >
-        <div>
-          <p style={{ fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase", color: "#747872", margin: 0 }}>
-            Menú Semanal
+        {/* Header */}
+        <div className="flex justify-between items-end mb-10 pb-6 border-b border-[#e0ddd9]">
+          <div>
+            <p className="text-xs tracking-widest uppercase text-[#747872] m-0">
+              Menú Semanal
+            </p>
+            <h1 className="text-[36px] font-bold text-[#1b1c1a] mt-1 font-serif tracking-tight m-0">
+              Planificación Semanal
+            </h1>
+          </div>
+          <p className="text-xs text-[#747872] m-0">
+            {new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" })}
           </p>
-          <h1
-            style={{
-              fontSize: "36px",
-              fontWeight: "700",
-              color: "#1b1c1a",
-              margin: "4px 0 0 0",
-              fontFamily: "'Libre Caslon Text', Georgia, serif",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Planificación Semanal
-          </h1>
         </div>
-        <p style={{ fontSize: "12px", color: "#747872", margin: 0 }}>
-          {new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" })}
-        </p>
-      </div>
 
-      {/* Day columns */}
-      <div style={{ display: "flex", gap: "12px" }}>
-        {days.map(day => {
-          const lunch = plan[day]?.Lunch
-          const dinner = plan[day]?.Dinner
-          return (
-            <div key={day} style={{ flex: 1, minWidth: 0 }}>
-              {/* Day Header */}
-              <div
-                style={{
-                  backgroundColor: "#506052",
-                  borderRadius: "8px 8px 0 0",
-                  padding: "10px 14px",
-                  textAlign: "center",
-                  marginBottom: "4px",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: "700",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "#ffffff",
-                  }}
-                >
-                  {day}
-                </span>
+        {/* Day columns */}
+        <div className="flex gap-3">
+          {days.map(day => {
+            const lunch = plan[day]?.Lunch
+            const dinner = plan[day]?.Dinner
+            return (
+              <div key={day} className="flex-1 min-w-0">
+                {/* Day Header */}
+                <div className="bg-[#506052] rounded-t-lg px-3.5 py-2.5 text-center mb-1">
+                  <span className="text-[11px] font-bold tracking-[0.12em] uppercase text-white">
+                    {day}
+                  </span>
+                </div>
+
+                {/* Lunch Slot */}
+                <MealCard meal="Almuerzo" dish={lunch} />
+
+                {/* Divider */}
+                <div className="h-1" />
+
+                {/* Dinner Slot */}
+                <MealCard meal="Cena" dish={dinner} />
               </div>
+            )
+          })}
+        </div>
 
-              {/* Lunch Slot */}
-              <MealCard meal="Almuerzo" dish={lunch} />
-
-              {/* Divider */}
-              <div style={{ height: "4px" }} />
-
-              {/* Dinner Slot */}
-              <MealCard meal="Cena" dish={dinner} />
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Footer */}
-      <div
-        style={{
-          marginTop: "40px",
-          paddingTop: "20px",
-          borderTop: "1px solid #e0ddd9",
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
-        <p style={{ fontSize: "11px", color: "#b5b3ae", margin: 0, letterSpacing: "0.05em" }}>
-          Planificador de Menú Semanal
-        </p>
+        {/* Footer */}
+        <div className="mt-10 pt-5 border-t border-[#e0ddd9] flex justify-center">
+          <p className="text-[11px] text-[#b5b3ae] m-0 tracking-wider">
+            Planificador de Menú Semanal
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -127,58 +70,24 @@ export function ExportPreview({ plan, days }: ExportPreviewProps) {
 function MealCard({ meal, dish }: { meal: string; dish: { title: string; labels: string[] } | null }) {
   return (
     <div
-      style={{
-        backgroundColor: dish ? "#ffffff" : "#f7f5f2",
-        border: "1px solid #e8e5e1",
-        borderRadius: "6px",
-        padding: "14px",
-        minHeight: "100px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: dish ? "flex-start" : "center",
-        alignItems: dish ? "flex-start" : "center",
-      }}
+      className={`border border-[#e8e5e1] rounded-md p-3.5 min-h-25 flex flex-col ${
+        dish ? "bg-white justify-start items-start" : "bg-[#f7f5f2] justify-center items-center"
+      }`}
     >
-      <p
-        style={{
-          fontSize: "9px",
-          fontWeight: "700",
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "#506052",
-          margin: "0 0 6px 0",
-        }}
-      >
+      <p className="text-[9px] font-bold tracking-[0.12em] uppercase text-[#506052] m-0 mb-1.5">
         {meal}
       </p>
       {dish ? (
         <>
-          <p
-            style={{
-              fontSize: "14px",
-              fontWeight: "600",
-              color: "#1b1c1a",
-              margin: "0 0 8px 0",
-              lineHeight: "1.3",
-              fontFamily: "'Libre Caslon Text', Georgia, serif",
-            }}
-          >
+          <p className="text-sm font-semibold text-[#1b1c1a] m-0 mb-2 leading-[1.3] font-serif">
             {dish.title}
           </p>
           {dish.labels.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "auto" }}>
+            <div className="flex flex-wrap items-center gap-1 mt-auto">
               {dish.labels.map(l => (
                 <span
                   key={l}
-                  style={{
-                    fontSize: "9px",
-                    fontWeight: "600",
-                    padding: "2px 7px",
-                    borderRadius: "999px",
-                    backgroundColor: "#f0edea",
-                    color: "#5e5e5d",
-                    letterSpacing: "0.04em",
-                  }}
+                  className="inline-block px-2.5 pt-0.5 pb-3 rounded-full bg-[#f0edea] text-[9px] font-semibold text-[#5e5e5d] tracking-wide text-center"
                 >
                   {l}
                 </span>
@@ -187,7 +96,7 @@ function MealCard({ meal, dish }: { meal: string; dish: { title: string; labels:
           )}
         </>
       ) : (
-        <p style={{ fontSize: "11px", color: "#c3c1bc", margin: 0 }}>—</p>
+        <p className="text-[11px] text-[#c3c1bc] m-0">—</p>
       )}
     </div>
   )
