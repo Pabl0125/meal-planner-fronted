@@ -49,7 +49,7 @@ export const sendChatMessage = async (
         errorMessage = "Too Many Requests (429): Please wait a moment before sending another message.";
         break;
       case 500:
-        errorMessage = `Internal Server Error (500): The AI server encountered an unexpected condition. ${serverDetail}`;
+        errorMessage = `Internal Server Error (500): The AI server encountered an unexpected condition`;
         break;
       case 502:
       case 503:
