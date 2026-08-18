@@ -47,7 +47,16 @@ export function PlannerDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const [selectedLabels, setSelectedLabels] = React.useState<string[]>([])
+  
+  // Infinite scroll state
+  const INITIAL_DISPLAY_COUNT = 10;
+  const LOAD_MORE_COUNT = 10;
+  const [displayCount, setDisplayCount] = React.useState(INITIAL_DISPLAY_COUNT);
 
+  // Reset infinite scroll on search/filter change
+  React.useEffect(() => {
+    setDisplayCount(INITIAL_DISPLAY_COUNT);
+  }, [searchQuery, selectedLabels]);
   // Initialize the weekly plan with null values for each meal slot
   const [plan, setPlan] = React.useState<WeeklyPlan>(() => {
     const initialPlan = {} as WeeklyPlan
@@ -74,6 +83,18 @@ export function PlannerDashboard() {
   React.useEffect(() => {
     loadData()
   }, [loadData])
+
+  const observer = React.useRef<IntersectionObserver | null>(null);
+  const observerTarget = React.useCallback((node: HTMLDivElement | null) => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setDisplayCount(prev => prev + LOAD_MORE_COUNT);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -284,12 +305,15 @@ export function PlannerDashboard() {
     return Array.from(labels).sort((a, b) => a.localeCompare(b))
   }, [dishes, tags])
 
-  const filteredDishes = dishes.filter(dish => {
+  const baseFilteredDishes = dishes.filter(dish => {
     const matchesSearch = dish.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dish.labels.some(l => l.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesLabels = selectedLabels.every(l => dish.labels.includes(l))
     return matchesSearch && matchesLabels;
-  }).slice(0, 8)
+  })
+
+  const filteredDishes = baseFilteredDishes.slice(0, displayCount);
+  const hasMore = baseFilteredDishes.length > displayCount;
 
   const activeDish = React.useMemo(() => dishes.find(d => `dish-${d.id}` === activeId), [activeId, dishes])
 
@@ -436,8 +460,13 @@ export function PlannerDashboard() {
                 />
               ))
             )}
-            {dishes.length > 8 && filteredDishes.length === 8 && (
-              <p className="text-xs text-center text-outline mt-4">Showing top 8 results. Search to see more.</p>
+            {hasMore && (
+              <div ref={observerTarget} className="py-4 flex justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-secondary" />
+              </div>
+            )}
+            {!hasMore && baseFilteredDishes.length > 0 && (
+              <p className="text-xs text-center text-outline mt-4 pb-4">No hay más platos que mostrar.</p>
             )}
           </div>
         </aside>

@@ -261,7 +261,7 @@ function EditableTagRow({
           <div className="relative bg-surface border border-surface-container rounded-2xl shadow-2xl p-6 max-w-sm w-full ring-1 ring-black/5" role="dialog" aria-modal="true" aria-labelledby={`delete-title-${tag.id}`}>
             <h3 id={`delete-title-${tag.id}`} className="text-xl font-bold text-on-surface mb-3">Eliminar Etiqueta</h3>
             <p className="text-secondary text-sm mb-6">
-              ¿Estás seguro de que quieres eliminar la etiqueta <strong className="text-on-surface">"{tag.name}"</strong>? Esta acción no se puede deshacer.
+              ¿Estás seguro de que quieres eliminar la etiqueta <strong className="text-on-surface">&quot;{tag.name}&quot;</strong>? Esta acción no se puede deshacer.
             </p>
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
