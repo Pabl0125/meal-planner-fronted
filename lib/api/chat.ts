@@ -15,7 +15,7 @@ export const sendChatMessage = async (
   context: string,
   sessionId?: string
 ): Promise<ChatResponse> => {
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081/api";
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
   
   const res = await fetch(`${baseUrl}/chat`, {
     method: "POST",
