@@ -4,9 +4,10 @@ import * as React from "react"
 import { DndContext, DragEndEvent, DragStartEvent, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from "@dnd-kit/core"
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Dish, DayOfWeek, MealType, WeeklyPlan } from "@/types/planner"
-import { PlatoAPI } from "@/types/api"
+import { PlatoAPI, EtiquetaAPI } from "@/types/api"
 import { mapPlatoToDish } from "@/lib/api/mappers"
 import { getDishes, createDish, updateDish, deleteDish } from "@/lib/api/dishes"
+import { getTags } from "@/lib/api/tags"
 import { DraggableDish } from "./draggable-dish"
 import { DroppableMealSlot } from "./droppable-meal-slot"
 import { CreateDishModal } from "./create-dish-modal"
@@ -26,9 +27,9 @@ import { jsPDF } from "jspdf"
 
 const DAYS: DayOfWeek[] = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
-
 export function PlannerDashboard() {
   const [dishes, setDishes] = React.useState<Dish[]>([])
+  const [tags, setTags] = React.useState<EtiquetaAPI[]>([])
   const [searchQuery, setSearchQuery] = React.useState("")
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [dishToEdit, setDishToEdit] = React.useState<Dish | null>(null)
@@ -45,6 +46,7 @@ export function PlannerDashboard() {
   const [isExporting, setIsExporting] = React.useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false)
   const [activeId, setActiveId] = React.useState<string | null>(null)
+  const [selectedLabels, setSelectedLabels] = React.useState<string[]>([])
 
   // Initialize the weekly plan with null values for each meal slot
   const [plan, setPlan] = React.useState<WeeklyPlan>(() => {
@@ -56,20 +58,22 @@ export function PlannerDashboard() {
   })
 
   // Fetch from API
-  React.useEffect(() => {
-    async function loadDishes() {
-      try {
-        const data = await getDishes()
-        setDishes(data)
-      } catch (err) {
-        console.warn("Backend error:", err)
-        setError("Could not load dishes. Please ensure the backend is running.")
-      } finally {
-        setIsLoading(false)
-      }
+  const loadData = React.useCallback(async () => {
+    try {
+      const [dishesData, tagsData] = await Promise.all([getDishes(), getTags()])
+      setDishes(dishesData)
+      setTags(tagsData)
+    } catch (err) {
+      console.warn("Backend error:", err)
+      setError("Could not load dishes. Please ensure the backend is running.")
+    } finally {
+      setIsLoading(false)
     }
-    loadDishes()
   }, [])
+
+  React.useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -172,25 +176,22 @@ export function PlannerDashboard() {
     if (dishToEdit) {
       try {
         const updatedDish = await updateDish(parseInt(dishToEdit.id, 10), dishData)
-        setDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d))
+        setDishes(prev => prev.map(d => d.id === dishToEdit.id ? updatedDish : d))
         
-        // Update plan if this dish is placed anywhere
+        // Update in plan if present
         setPlan(prev => {
           const newPlan = { ...prev };
           DAYS.forEach(day => {
-            if (newPlan[day].Lunch?.id === updatedDish.id) newPlan[day].Lunch = updatedDish;
-            if (newPlan[day].Dinner?.id === updatedDish.id) newPlan[day].Dinner = updatedDish;
+            if (newPlan[day].Lunch?.id === dishToEdit.id) newPlan[day].Lunch = updatedDish;
+            if (newPlan[day].Dinner?.id === dishToEdit.id) newPlan[day].Dinner = updatedDish;
           });
           return newPlan;
         });
       } catch (error) {
-        console.warn("Mocking update due to backend error:", error)
-        const mockUpdated: PlatoAPI = {
-          ...dishData,
-          id: parseInt(dishToEdit.id, 10)
-        }
-        const updatedMockDish = mapPlatoToDish(mockUpdated)
-        setDishes(prev => prev.map(d => d.id === updatedMockDish.id ? updatedMockDish : d))
+        console.warn("Mocking edit due to backend error:", error)
+        const mockDish: PlatoAPI = { ...dishData, id: parseInt(dishToEdit.id, 10) }
+        const updatedMockDish = mapPlatoToDish(mockDish)
+        setDishes(prev => prev.map(d => d.id === dishToEdit.id ? updatedMockDish : d))
         
         setPlan(prev => {
           const newPlan = { ...prev };
@@ -276,13 +277,12 @@ export function PlannerDashboard() {
     setIsExporting(false)
   }
 
-  const [selectedLabels, setSelectedLabels] = React.useState<string[]>([])
-
-  const uniqueLabels = React.useMemo(() => {
+  const availableLabels = React.useMemo(() => {
     const labels = new Set<string>()
+    tags.forEach(t => labels.add(t.name))
     dishes.forEach(d => d.labels.forEach(l => labels.add(l)))
-    return Array.from(labels)
-  }, [dishes])
+    return Array.from(labels).sort((a, b) => a.localeCompare(b))
+  }, [dishes, tags])
 
   const filteredDishes = dishes.filter(dish => {
     const matchesSearch = dish.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -385,9 +385,9 @@ export function PlannerDashboard() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            {uniqueLabels.length > 0 && (
+            {availableLabels.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1 items-center">
-                {uniqueLabels.map(label => {
+                {availableLabels.map(label => {
                   const isSelected = selectedLabels.includes(label);
                   return (
                     <button
@@ -471,7 +471,10 @@ export function PlannerDashboard() {
 
       <ManageTagsModal 
         isOpen={manageTagsOpen} 
-        onClose={() => setManageTagsOpen(false)} 
+        onClose={() => {
+          setManageTagsOpen(false)
+          loadData()
+        }} 
       />
 
       <DragOverlay dropAnimation={null}>
