@@ -12,4 +12,4 @@ services:
     restart: always
     environment:
       # Modifica esta variable si tu API backend corre en otra direccion
-      - NEXT_PUBLIC_API_URL=http://tu-homeserver-ip:8080/api
+      - NEXT_PUBLIC_API_URL=http://tu-homeserver-ip:8081/api

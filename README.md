@@ -40,9 +40,9 @@ Built with Next.js, React, and Tailwind CSS.
    ```
 
 3. **Configure environment variables:**
-   Create a `.env.local` file in the root directory and specify your backend API URL (optional if running the backend locally on port 8080):
+   Create a `.env.local` file in the root directory and specify your backend API URL (optional if running the backend locally on port 8081):
    ```env
-   NEXT_PUBLIC_API_URL=http://localhost:8080/api
+   NEXT_PUBLIC_API_URL=http://localhost:8081/api
    ```
 
 4. **Start the development server:**
